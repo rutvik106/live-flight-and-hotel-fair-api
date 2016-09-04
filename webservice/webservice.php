@@ -3,6 +3,12 @@
 require_once("../credentials.inc.php");
 require_once("../api_constants.inc.php");
 
+define("ANY_FLIGHTS", "T00:00:00");
+define("MORNING_FLIGHTS", "T08:00:00");
+define("AFTERNOON_FLIGHTS", "T14:00:00");
+define("EVENING_FLIGHTS", "T19:00:00");
+define("NIGHT_FLIGHTS", "T01:00:00");
+
 if(isset($_POST["method"]))
 {
 	switch ($_POST["method"]) {
@@ -13,7 +19,7 @@ if(isset($_POST["method"]))
 		case "search_flights":
 			if(isset($_POST["token_id"]))
 			{
-				echo search_flights($_POST["token_id"]);
+				echo search_flights($_POST["token_id"],$_POST["origin"],$_POST["destination"],$_POST["flight_cabin_class"],$_POST["departure_time"],$_POST["arrival_time"],$_POST["adult_count"],$_POST["child_count"],$_POST["infant_count"],$_POST["journey_type"]);
 			}
 			break;
 		
@@ -28,27 +34,32 @@ if(isset($_POST["method"]))
 //***API FUNCTIONS STARTS FROM HERE***//////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function search_flights($token_id){
+function search_flights($token_id,$origin,$destination,$flight_cabin_class,$departure_time,$arrival_time,$adult_count,$child_count,$infant_count,$journey_type){
 
 	$segments[]=array(
- 			"Origin"=>"DEL", 
-            "Destination"=>"BOM", 
-            "FlightCabinClass"=>"1", 
-            "PreferredDepartureTime"=>"2016-09-06T00: 00: 00", 
-            "PreferredArrivalTime"=>"2016-09-06T00: 00: 00",
+ 			"Origin"=>$origin, 
+            "Destination"=>$destination, 
+
+            // 1 for All 2 for Economy 3 for PremiumEconomy 4 for Business 5 for PremiumBusiness 6 for First
+            "FlightCabinClass"=>$flight_cabin_class,  
+
+            "PreferredDepartureTime"=>$departure_time.ANY_FLIGHTS, 
+            "PreferredArrivalTime"=>$arrival_time.ANY_FLIGHTS,
 		);
 
 	$sources[]="6E";
 
 	$post=array(
 			"EndUserIp"=>"192.168.10.10", 
-		    "TokenId"=>"dc20812c-2a8e-4481-b355-39a069de17e3", 
-		    "AdultCount"=>"1", 
-		    "ChildCount"=>"0", 
-		    "InfantCount"=>"0", 
+		    "TokenId"=>$token_id, 
+		    "AdultCount"=>$adult_count, 
+		    "ChildCount"=>$child_count, 
+		    "InfantCount"=>$infant_count, 
 		    "DirectFlight"=>"false", 
 		    "OneStopFlight"=>"false", 
-		    "JourneyType"=>"1", 
+
+		    //1 - OneWay 2 - Return 3 - Multi Stop 4 - AdvanceSearch 5 - Special Return
+		    "JourneyType"=>$journey_type, 
 		    "PreferredAirlines"=>null, 
 		    "Segments"=>$segments,
 		    "Sources"=>$sources,
@@ -62,14 +73,29 @@ function search_flights($token_id){
 function authenticate(){
 
 	$post = array(
-    'ClientId' 	=>	CLIENT_ID,
-    'UserName' 	=>	USER_NAME,
-    'Password' 	=>	PASSWORD,
-    'LoginType'	=>	LOGIN_TYPE,
-    'EndUserIp'	=>	END_USER_IP,
-	);
+		    'ClientId' 	=>	CLIENT_ID,
+		    'UserName' 	=>	USER_NAME,
+		    'Password' 	=>	PASSWORD,
+		    'LoginType'	=>	LOGIN_TYPE,
+		    'EndUserIp'	=>	END_USER_IP,
+		);
 
 	return execute($post,AUTHENTICATE);
+
+}
+
+
+function logout($token_agency_id,$token_member_id,$token_id){
+
+	$post = array(
+			'ClientId'=>CLIENT_ID,
+			'EndUserIp'=>END_USER_IP,
+			'TokenAgencyId'=>$token_agency_id,
+			'TokenMemberId'=>$token_member_id,
+			'TokenId'=>$token_id,
+		);
+
+	return execute($post,LOGOUT);
 
 }
 
@@ -83,7 +109,7 @@ function execute($post,$url_method){
 	$ch = curl_init();
 
 	// set URL and other appropriate options
-	curl_setopt($ch, CURLOPT_URL, URL.$url_method);
+	curl_setopt($ch, CURLOPT_URL, $url_method);
 
 	curl_setopt($ch, CURLOPT_POST, 1);
 
@@ -102,7 +128,6 @@ function execute($post,$url_method){
 	curl_setopt($ch, CURLOPT_HEADER, false);
 
 	curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
-
 
 	// grab URL and pass it to the browser
 	$response= curl_exec($ch);
